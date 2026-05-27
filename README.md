@@ -16,11 +16,14 @@
 ### 1.1 기본 보안 및 네트워크 설정 (SSH & 방화벽)
 * **SSH 포트 변경(20022) 및 Root 로그인 차단**
   ```bash
+  # 0. 기초 업데이트
+  sudo apt update
+  sudo apt install -y openssh-server
+  sudo apt install -y ufw
+  
   # 1. sshd_config 파일 내 포트 및 Root 로그인 차단 설정 수정
-  sudo sed -i 's/^#Port 22/Port 20022/' /etc/ssh/sshd_config
-  sudo sed -i 's/^Port 22/Port 20022/' /etc/ssh/sshd_config
-  sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-  sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+  sudo sed -i -E 's/^#?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+  sudo sed -i -E 's/^#?Port 22/Port 20022/' /etc/ssh/sshd_config
   
   # 2. systemd SSH 소켓 서비스 포트 변경 (최신 우분투 대응)
   sudo sed -i 's/ListenStream=22/ListenStream=20022/' /lib/systemd/system/ssh.socket
@@ -29,19 +32,23 @@
   sudo systemctl daemon-reload
   sudo systemctl restart ssh.socket
   sudo systemctl restart sshd
+
+  # 4.포트체크
+  sudo ss -tulnp | grep sshd
   ```
 
 * **방화벽(UFW) 설치 및 인바운드 정책 구성**
   ```bash
-  # 1. UFW 방화벽 설치
-  sudo apt update && sudo apt install -y ufw
 
-  # 2. 필수 서비스 포트만 명시적 허용 (화이트리스트 방식)
+  # 1. 필수 서비스 포트만 명시적 허용 (화이트리스트 방식)
   sudo ufw allow 20022/tcp
   sudo ufw allow 15034/tcp
 
-  # 3. 방화벽 활성화
+  # 2. 방화벽 활성화
   sudo ufw enable
+
+  # 3. 방화벽 체크
+  sudo ufw status
   ```
 
 ### 1.2 계정/그룹 관리 및 디렉토리 권한 설정 (ACL)
@@ -60,6 +67,11 @@
   sudo usermod -aG agent-common,agent-core agent-admin
   sudo usermod -aG agent-common,agent-core agent-dev
   sudo usermod -aG agent-common agent-test
+
+  # 4.그룹 체크
+  id agent-admin 
+  id agent-dev 
+  id agent-test
   ```
 
 * **공유/보안 디렉토리 구조 설계 및 권한 분리**
@@ -83,6 +95,12 @@
   sudo chmod 770 $AGENT_HOME/api_keys
   sudo chgrp agent-core /var/log/agent-app
   sudo chmod 770 /var/log/agent-app
+
+  # 5. 권한체크
+  앱 폴더 내부 확인 
+  sudo ls -l /home/agent-admin/agent-app/ 
+  로그 폴더 확인 
+  sudo ls -ld /var/log/agent-app
   ```
 
 ### 1.3 애플리케이션 실행 환경 구축
@@ -99,6 +117,16 @@
   export AGENT_KEY_PATH=$AGENT_HOME/api_keys
   export AGENT_LOG_DIR=/var/log/agent-app
   EOF
+
+  echo 'export AGENT_HOME=/home/agent-admin/agent-app' >> ~/.bashrc 
+  echo 'export AGENT_PORT=15034' >> ~/.bashrc 
+  echo 'export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files' >> ~/.bashrc 
+  echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys' >> ~/.bashrc 
+  echo 'export AGENT_LOG_DIR=/var/log/agent-app' >> ~/.bashrc
+  
+  환경변수 체크 
+  env | grep AGENT
+  환경변수 즉시 적용
   source ~/.bashrc
 
   # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금
@@ -110,6 +138,7 @@
   ```bash
   # 앱 디렉토리로 이동 후 백그라운드 모드로 실행 (터미널 종료 후에도 유지)
   cd $AGENT_HOME
+  ./agent-app-linux-x86
   nohup ./agent-app-linux-x86 > /dev/null 2>&1 &
   ```
 
@@ -119,6 +148,7 @@
   # root 권한으로 logrotate 정책 정의 파일 생성 (최대 10MB 크기, 10개 파일 보존)
   sudo bash -c 'cat << EOF > /etc/logrotate.d/agent-app
   /var/log/agent-app/monitor.log {
+      su agent-admin agent-core
       size 10M
       rotate 10
       missingok
@@ -136,6 +166,9 @@
 
   # 2. agent-admin 계정의 크론탭 스케줄러에 스크립트 상주 등록 (매분 실행)
   (crontab -l 2>/dev/null; echo "* * * * * /home/agent-admin/agent-app/bin/monitor.sh") | crontab -
+  
+* **복사한 파일 옮기기**
+  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
   ```
 
 ---
@@ -161,75 +194,111 @@
 * **소유 구조 및 권한:** 소유자 `agent-dev` / 소유그룹 `agent-core` / 권한 `750` (`rwxr-x---`)
 
 ```bash
+sudo bash -c 'cat << '\''EOF'\'' > /home/agent-admin/agent-app/bin/monitor.sh
 #!/bin/bash
-
-# ==============================================================================
-# 시스템 상태 수집 및 로깅 스크립트 (monitor.sh)
-# 작성자: agent-dev
-# 실행자: agent-admin (cron 시스템 스케줄러에 의해 매분 순환 수행됨)
-# ==============================================================================
-
-# 1. 기본 글로벌 변수 선언
 APP_NAME="agent-app-linux-x86"
 APP_PORT=15034
 LOG_FILE="/var/log/agent-app/monitor.log"
 DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
 
-# 2. 애플리케이션 상태 체크 (Health Check - 미작동 시 조용히 종료)
-# 2-1. 프로세스 동작 상태 체크
-if [ -z "$(pgrep -f "$APP_NAME" | head -n 1)" ]; then
-    exit 1
-fi
-
-# 2-2. 네트워크 소켓 리슨 상태 체크
-if ! ss -tulnp 2>/dev/null | grep -q ":$APP_PORT "; then
-    exit 1
-fi
-
-# 상태 기록용 변수 선언
+echo "====== SYSTEM MONITOR RESULT ======"
+echo ""
+echo "[HEALTH CHECK]"
 APP_PID=$(pgrep -f "$APP_NAME" | head -n 1)
-WARNINGS=""
-
-# 3. 방화벽 상태 점검 (비활성 시 경고만 출력하고 실행은 계속)
-if [ "$(systemctl is-active ufw)" != "active" ]; then
-    WARNINGS="$WARNINGS [WARNING] UFW Inactive"
-fi
-
-# 4. 시스템 메트릭 자원 수집 연산
-# 4-1. CPU 사용률 연산 (vmstat의 idle 수치 역산)
-CPU_IDLE=$(vmstat 1 2 | tail -1 | awk '{print $15}')
-CPU_USAGE=$((100 - CPU_IDLE))
-
-# 4-2. 메모리(RAM) 사용률 연산
-MEM_TOTAL=$(free -m | awk '/Mem:/ {print $2}')
-MEM_USED=$(free -m | awk '/Mem:/ {print $3}')
-if [ "$MEM_TOTAL" -gt 0 ]; then
-    MEM_USAGE=$(( MEM_USED * 100 / MEM_TOTAL ))
+if [ -n "$APP_PID" ]; then
+    echo "Checking process '\$APP_NAME'... [OK] (PID: $APP_PID)"
 else
-    MEM_USAGE=0
+    echo "Checking process '\$APP_NAME'... [FAIL]"
+    exit 1
 fi
 
-# 4-3. 디스크 사용률 연산 (Root 파티션 대상)
-DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+if ss -tulnp 2>/dev/null | grep -q ":$APP_PORT "; then
+    echo "Checking port $APP_PORT... [OK]"
+else
+    echo "Checking port $APP_PORT... [FAIL]"
+    exit 1
+fi
+echo ""
 
-# 5. 임계값 초과 모니터링 경고 트리거
+# 자원 수집
+CPU_IDLE=$(vmstat 1 2 | tail -1 | awk "{print \$15}")
+CPU_USAGE=$((100 - CPU_IDLE))
+MEM_TOTAL=$(free -m | awk "/Mem:/ {print \$2}")
+MEM_USED=$(free -m | awk "/Mem:/ {print \$3}")
+MEM_USAGE=$(( MEM_USED * 100 / MEM_TOTAL ))
+DISK_USAGE=$(df -h / | awk "NR==2 {print \$5}" | sed "s/%//")
+
+echo "[RESOURCE MONITORING]"
+echo "CPU Usage : ${CPU_USAGE}%"
+echo "MEM Usage : ${MEM_USAGE}%"
+echo "DISK Used  : ${DISK_USAGE}%"
+echo ""
+
+# 경고 및 로그 메세지 생성
+WARNINGS=""
+if [ "$(systemctl is-active ufw)" != "active" ]; then 
+    echo "[WARNING] UFW is inactive"
+    WARNINGS="$WARNINGS [WARNING] UFW is inactive"
+fi
 if [ "$CPU_USAGE" -gt 20 ]; then 
-    WARNINGS="$WARNINGS [WARNING] CPU > 20%($CPU_USAGE%)"
+    echo "[WARNING] CPU threshold exceeded (${CPU_USAGE}% > 20%)"
+    WARNINGS="$WARNINGS [WARNING] CPU > 20%(${CPU_USAGE}%)"
 fi
-
 if [ "$MEM_USAGE" -gt 10 ]; then 
-    WARNINGS="$WARNINGS [WARNING] MEM > 10%($MEM_USAGE%)"
+    echo "[WARNING] MEM threshold exceeded (${MEM_USAGE}% > 10%)"
+    WARNINGS="$WARNINGS [WARNING] MEM > 10%(${MEM_USAGE}%)"
 fi
-
 if [ "$DISK_USAGE" -gt 80 ]; then 
-    WARNINGS="$WARNINGS [WARNING] DISK_USED > 80%($DISK_USAGE%)"
+    echo "[WARNING] DISK threshold exceeded (${DISK_USAGE}% > 80%)"
+    WARNINGS="$WARNINGS [WARNING] DISK_USED > 80%(${DISK_USAGE}%)"
 fi
 
-# 6. 표준 로깅 포맷 텍스트 조합
+# 파일에 1줄 로그 기록
 LOG_MESSAGE="[$DATE_STR] PID:$APP_PID CPU:${CPU_USAGE}% MEM:${MEM_USAGE}% DISK_USED:${DISK_USAGE}% $WARNINGS"
+echo "$LOG_MESSAGE" | sed "s/  */ /g" >> "$LOG_FILE"
+echo ""
 
-# 공백 정규화 처리 후 로그 파일에 쓰기(Append)
-echo "$LOG_MESSAGE" | sed 's/  */ /g' >> "$LOG_FILE"
+# 통계 리포트 (기존 로그 파일 분석)
+echo "====== STATISTICS REPORT ======"
+if [ -f "$LOG_FILE" ]; then
+    awk '\''
+    BEGIN { c_sum=0; m_sum=0; cnt=0; c_max=0; m_max=0; c_min=1000; m_min=1000; }
+    {
+        date_time = $1" "$2;
+        if(match($4, /[0-9]+/)) { cpu = substr($4, RSTART, RLENGTH) + 0; }
+        if(match($5, /[0-9]+/)) { mem = substr($5, RSTART, RLENGTH) + 0; }
+        
+        cnt++; c_sum += cpu; m_sum += mem;
+        if(cpu >= c_max) { c_max = cpu; c_max_dt = date_time; }
+        if(cpu <= c_min) { c_min = cpu; c_min_dt = date_time; }
+        if(mem >= m_max) { m_max = mem; m_max_dt = date_time; }
+        if(mem <= m_min) { m_min = mem; m_min_dt = date_time; }
+    }
+    END {
+        if(cnt > 0) {
+            printf "[CPU]\n"
+            printf "Average : %.1f%%\n", c_sum/cnt
+            printf "Maximum : %d%% at %s\n", c_max, substr(c_max_dt, 2, length(c_max_dt)-2)
+            printf "Minimum : %d%% at %s\n", c_min, substr(c_min_dt, 2, length(c_min_dt)-2)
+            printf "[Memory]\n"
+            printf "Average : %.1f%%\n", m_sum/cnt
+            printf "Maximum : %d%% at %s\n", m_max, substr(m_max_dt, 2, length(m_max_dt)-2)
+            printf "Minimum : %d%% at %s\n", m_min, substr(m_min_dt, 2, length(m_min_dt)-2)
+            printf "[Samples]\n"
+            printf "Data Points: %d samples\n", cnt
+        }
+    }'\'' "$LOG_FILE"
+fi
 
+echo ""
+echo "[INFO] Log appended: $LOG_FILE"
 exit 0
+EOF'
+
+# 2.권한 변경
+sudo chown agent-dev:agent-core /home/agent-admin/agent-app/bin/monitor.sh
+sudo chmod 750 /home/agent-admin/agent-app/bin/monitor.sh
+
+# 3. 출력
+sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
 ```
