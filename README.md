@@ -33,8 +33,9 @@
   sudo systemctl restart ssh.socket
   sudo systemctl restart sshd
 
-  # 4.포트체크
+  # 4.포트체크 // 루트 로그인 차단 확인
   sudo ss -tulnp | grep sshd
+  sudo sshd -T | grep permitrootlogin
   ```
 
 * **방화벽(UFW) 설치 및 인바운드 정책 구성**
@@ -69,6 +70,9 @@
   sudo usermod -aG agent-common agent-test
 
   # 4.그룹 체크
+  getent group agent-core
+  getent group agent-common
+  
   id agent-admin 
   id agent-dev 
   id agent-test
@@ -102,7 +106,12 @@
   로그 폴더 확인 
   sudo ls -ld /var/log/agent-app
   ```
-
+  
+* **복사한 파일 옮기기**
+  ```bash
+  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
+  ```
+ 
 ### 1.3 애플리케이션 실행 환경 구축
 * **환경 변수 영구 등록 및 키 파일 생성**
   ```bash
@@ -123,15 +132,17 @@
   echo 'export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files' >> ~/.bashrc 
   echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys' >> ~/.bashrc 
   echo 'export AGENT_LOG_DIR=/var/log/agent-app' >> ~/.bashrc
+
+  환경변수 즉시 적용
+  source ~/.bashrc
   
   환경변수 체크 
   env | grep AGENT
-  환경변수 즉시 적용
-  source ~/.bashrc
 
-  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금
-  echo "agent_api_key_test" > $AGENT_KEY_PATH/secret.key
-  chmod 640 $AGENT_KEY_PATH/secret.key
+
+  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 // 미션에서 주는건 t_secret.key인데 그렇게 만들면 오류나서 일부 수정
+  echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
+  hmod 640 /home/agent-admin/agent-app/api_keys/secret.key
   ```
 
 * **애플리케이션 구동 (백그라운드 실행 프로세스)**
@@ -140,6 +151,13 @@
   cd $AGENT_HOME
   ./agent-app-linux-x86
   nohup ./agent-app-linux-x86 > /dev/null 2>&1 &
+
+  pkill -f agent-app-linux-x86
+  
+  ps -ef | grep agent-app-linux-x86
+  
+  sudo ss -tulnp | grep 15034
+  
   ```
 
 ### 1.4 자동화 스크립트 설정 (cron & logrotate)
@@ -156,6 +174,15 @@
       create 0660 agent-admin agent-core
   }
   EOF'
+
+  1단계: 파일이 잘 만들어졌는지 눈으로 확인하기
+  cat /etc/logrotate.d/agent-app
+
+  2단계: 가짜로 실행해 보기 (Dry-run / 가장 중요 ⭐️)
+  sudo logrotate -d /etc/logrotate.d/agent-app
+
+  3단계: 당장 강제로 실행해 보기 (Force)
+  sudo logrotate -f /etc/logrotate.d/agent-app
   ```
 
 * **크론탭(crontab)을 이용한 무인 모니터링 자동화**
@@ -166,11 +193,11 @@
 
   # 2. agent-admin 계정의 크론탭 스케줄러에 스크립트 상주 등록 (매분 실행)
   (crontab -l 2>/dev/null; echo "* * * * * /home/agent-admin/agent-app/bin/monitor.sh") | crontab -
+
+  # 3.실행중인 크론탭 목록
+  crontab -l
   ```
-* **복사한 파일 옮기기**
- ```bash
-  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
- ```
+
 
 ---
 
@@ -288,4 +315,7 @@ sudo systemctl restart ufw
 
 # 3. 출력
 sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
+
+# 4. monitor.log 보기
+tail -f /var/log/agent-app/monitor.log
 ```
