@@ -174,22 +174,7 @@
 
 ---
 
-## 2. 필수 증거 자료 체크리스트
-
-| 점검 항목 | 결과 | 검증 내용 및 확보 데이터 요약 |
-| :--- | :---: | :--- |
-| **SSH 포트(20022) 및 Root 접속 차단** | `[PASS]` | `sudo ss -tulnp \| grep sshd` 조회 시 `0.0.0.0:20022` 인바운드 대기 상태 확인 완료. |
-| **방화벽(UFW) 포트 허용 정책** | `[PASS]` | `sudo ufw status` 조회 시 `Status: active` 및 지정된 두 포트(20022/15034) ALLOW 적용 확인 완료. |
-| **계정 및 권한 그룹 편성** | `[PASS]` | `id agent-admin` 명령어 결과 내역에 `agent-common`, `agent-core` 그룹 매핑 데이터 일치 확인. |
-| **디렉토리 구조 및 권한 분리** | `[PASS]` | `ls -ld` 확인 시 권한 트리(770)가 구축되었으며, 미인가자의 접근이 거부(`Permission denied`)됨을 교차 검증. |
-| **Boot Sequence 및 Agent READY** | `[PASS]` | 5단계 체크(계정, 환경변수, 키 파일, 포트, 권한) `[OK]` 패스 및 15034 포트 Listen 바인딩 성공 내역 확인. |
-| **monitor.sh 실행 및 모니터링 로직** | `[PASS]` | 백그라운드 프로세스 감지, UFW 활성 점검, 서버 자원(CPU/MEM/DISK) 메트릭 추출 등 스크립트 정상 동작 확인. |
-| **monitor.log 누적 데이터 정합성** | `[PASS]` | `/var/log/agent-app/monitor.log` 열람 시 규정된 포맷(`[시간] PID CPU MEM DISK 경고`)으로 안전하게 인입됨 확인. |
-| **crontab 자동 실행(1분 간격 누적)** | `[PASS]` | `15:38:44`, `15:39:01`, `15:40:01` 등 시스템 스케줄러를 통해 1분 간격으로 시계열 로그가 정상 누적됨을 확인. |
-
----
-
-## 3. 자동화 스크립트 소스코드 (`monitor.sh`)
+## 2. 자동화 스크립트 소스코드 (`monitor.sh`)
 
 * **파일 시스템 배치 경로:** `/home/agent-admin/agent-app/bin/monitor.sh`
 * **소유 구조 및 권한:** 소유자 `agent-dev` / 소유그룹 `agent-core` / 권한 `750` (`rwxr-x---`)
@@ -299,6 +284,7 @@ EOF'
 # 2.권한 변경
 sudo chown agent-dev:agent-core /home/agent-admin/agent-app/bin/monitor.sh
 sudo chmod 750 /home/agent-admin/agent-app/bin/monitor.sh
+sudo systemctl restart ufw
 
 # 3. 출력
 sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
