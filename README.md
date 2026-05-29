@@ -7,8 +7,7 @@
 
 ## 📋 목차
 1. [설정 및 명령어 기록](#1-설정-및-명령어-기록)
-2. [필수 증거 자료 체크리스트](#2-필수-증거-자료-체크리스트)
-3. [자동화 스크립트 소스코드](#3-자동화-스크립트-소스코드-monitorsh)
+2. [자동화 스크립트 소스코드](#3-자동화-스크립트-소스코드-monitorsh)
 
 ---
 
@@ -141,7 +140,7 @@
   echo 'export AGENT_HOME=/home/agent-admin/agent-app' >> ~/.bashrc 
   echo 'export AGENT_PORT=15034' >> ~/.bashrc 
   echo 'export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files' >> ~/.bashrc 
-  echo 'export AGENT_KEY_PATH: $AGENT_HOME/api_keys/t_secret.key' >> ~/.bashrc 
+  echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys/t_secret.key' >> ~/.bashrc 
   echo 'export AGENT_LOG_DIR=/var/log/agent-app' >> ~/.bashrc
 
   환경변수 즉시 적용
