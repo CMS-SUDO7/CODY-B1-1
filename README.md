@@ -140,9 +140,9 @@
   env | grep AGENT
 
 
-  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 // 미션에서 주는건 t_secret.key인데 그렇게 만들면 오류나서 일부 수정
+  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 //
   echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
-  hmod 640 /home/agent-admin/agent-app/api_keys/secret.key
+  chmod 640 /home/agent-admin/agent-app/api_keys/secret.key
   ```
 
 * **애플리케이션 구동 (백그라운드 실행 프로세스)**
