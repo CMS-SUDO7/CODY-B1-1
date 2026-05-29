@@ -103,13 +103,13 @@
   # 3. 권한 정책 적용 (최소 권한의 원칙)
   # upload_files: 공유 디렉토리 (agent-common 그룹 전체 R/W 가능)
   sudo chgrp agent-common $AGENT_HOME/upload_files
-  sudo chmod 760 $AGENT_HOME/upload_files
+  sudo chmod 770 $AGENT_HOME/upload_files
 
   # api_keys 및 로그: 보안 디렉토리 (agent-core 핵심 그룹 ONLY R/W 가능)
   sudo chgrp agent-core $AGENT_HOME/api_keys
-  sudo chmod 760 $AGENT_HOME/api_keys
+  sudo chmod 770 $AGENT_HOME/api_keys
   sudo chgrp agent-core /var/log/agent-app
-  sudo chmod 760 /var/log/agent-app
+  sudo chmod 770 /var/log/agent-app
 
   # 5. 권한체크
   앱 폴더 내부 확인 
@@ -134,14 +134,14 @@
   export AGENT_HOME=/home/agent-admin/agent-app
   export AGENT_PORT=15034
   export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files
-  export AGENT_KEY_PATH=$AGENT_HOME/api_keys
+  export AGENT_KEY_PATH=$AGENT_HOME/api_keys/t_secret.key
   export AGENT_LOG_DIR=/var/log/agent-app
   EOF
 
   echo 'export AGENT_HOME=/home/agent-admin/agent-app' >> ~/.bashrc 
   echo 'export AGENT_PORT=15034' >> ~/.bashrc 
   echo 'export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files' >> ~/.bashrc 
-  echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys' >> ~/.bashrc 
+  echo 'export AGENT_KEY_PATH: $AGENT_HOME/api_keys/t_secret.key' >> ~/.bashrc 
   echo 'export AGENT_LOG_DIR=/var/log/agent-app' >> ~/.bashrc
 
   환경변수 즉시 적용
@@ -152,8 +152,8 @@
 
 
   # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 //제공된 파이썬app가 secret.key키 요구
-  echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
-  chmod 640 /home/agent-admin/agent-app/api_keys/secret.key
+  echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/t_secret.key
+  chmod 640 /home/agent-admin/agent-app/api_keys/t_secret.key
   ```
 
 <img width="839" height="74" alt="Screenshot 2026-05-29 at 4 17 31 PM" src="https://github.com/user-attachments/assets/e6ac5020-c3b7-4082-ae8a-f9a941f397a4" />
