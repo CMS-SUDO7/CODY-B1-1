@@ -103,13 +103,13 @@
   # 3. 권한 정책 적용 (최소 권한의 원칙)
   # upload_files: 공유 디렉토리 (agent-common 그룹 전체 R/W 가능)
   sudo chgrp agent-common $AGENT_HOME/upload_files
-  sudo chmod 770 $AGENT_HOME/upload_files
+  sudo chmod 760 $AGENT_HOME/upload_files
 
   # api_keys 및 로그: 보안 디렉토리 (agent-core 핵심 그룹 ONLY R/W 가능)
   sudo chgrp agent-core $AGENT_HOME/api_keys
-  sudo chmod 770 $AGENT_HOME/api_keys
+  sudo chmod 760 $AGENT_HOME/api_keys
   sudo chgrp agent-core /var/log/agent-app
-  sudo chmod 770 /var/log/agent-app
+  sudo chmod 760 /var/log/agent-app
 
   # 5. 권한체크
   앱 폴더 내부 확인 
