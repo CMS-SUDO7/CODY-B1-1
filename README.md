@@ -2,6 +2,7 @@
 
 본 문서는 리눅스 서버 환경에서 다중 사용자 권한 관리, 네트워크 보안 설정, 애플리케이션 배포 환경 구축 및 시스템 상태 관제 자동화 스크립트(`monitor.sh`)를 구현한 전체 수행 내역을 기록한 문서입니다.
 
+
 ---
 
 ## 📋 목차
@@ -37,6 +38,10 @@
   sudo ss -tulnp | grep sshd
   sudo sshd -T | grep permitrootlogin
   ```
+<img width="1157" height="105" alt="Screenshot 2026-05-28 at 7 03 33 PM" src="https://github.com/user-attachments/assets/78240321-5b73-48f9-8e64-a04598319430" />
+
+<img width="840" height="47" alt="Screenshot 2026-05-28 at 7 03 58 PM" src="https://github.com/user-attachments/assets/c89b16f6-e4c5-4038-bba8-fea366e421dd" />
+
 
 * **방화벽(UFW) 설치 및 인바운드 정책 구성**
   ```bash
@@ -51,6 +56,9 @@
   # 3. 방화벽 체크
   sudo ufw status
   ```
+
+<img width="738" height="205" alt="Screenshot 2026-05-28 at 7 05 19 PM" src="https://github.com/user-attachments/assets/23fc7535-40d6-4be7-8add-0fd1d7799f6f" />
+
 
 ### 1.2 계정/그룹 관리 및 디렉토리 권한 설정 (ACL)
 * **역할 기반 사용자 계정 및 그룹 생성**
@@ -77,6 +85,9 @@
   id agent-dev 
   id agent-test
   ```
+
+<img width="836" height="83" alt="Screenshot 2026-05-28 at 7 09 19 PM" src="https://github.com/user-attachments/assets/bab1418b-580d-4f7b-8cac-1c9eebb688d7" />
+
 
 * **공유/보안 디렉토리 구조 설계 및 권한 분리**
   ```bash
@@ -140,10 +151,13 @@
   env | grep AGENT
 
 
-  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 //
+  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 //제공된 파이썬app가 secret.key키 요구
   echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
   chmod 640 /home/agent-admin/agent-app/api_keys/secret.key
   ```
+
+<img width="839" height="74" alt="Screenshot 2026-05-29 at 4 17 31 PM" src="https://github.com/user-attachments/assets/e6ac5020-c3b7-4082-ae8a-f9a941f397a4" />
+
 
 * **애플리케이션 구동 (백그라운드 실행 프로세스)**
   ```bash
@@ -159,6 +173,11 @@
   sudo ss -tulnp | grep 15034
   
   ```
+
+<img width="1169" height="350" alt="Screenshot 2026-05-28 at 7 41 05 PM" src="https://github.com/user-attachments/assets/c710da80-417f-4580-9a64-913b56411374" />
+
+
+
 
 ### 1.4 자동화 스크립트 설정 (cron & logrotate)
 * **로그 무한 증식 방지 정책 구현 (logrotate)**
@@ -319,3 +338,12 @@ sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
 # 4. monitor.log 보기
 tail -f /var/log/agent-app/monitor.log
 ```
+
+<img width="1154" height="140" alt="Screenshot 2026-05-28 at 8 03 46 PM" src="https://github.com/user-attachments/assets/fa36dd2e-0226-47e5-b4af-94a8a5687fcd" />
+
+<img width="1154" height="152" alt="Screenshot 2026-05-28 at 8 20 18 PM" src="https://github.com/user-attachments/assets/cc4fa3dd-6c57-4ded-97df-684eca8319e9" />
+
+<img width="1160" height="538" alt="Screenshot 2026-05-28 at 8 37 37 PM" src="https://github.com/user-attachments/assets/128d0b39-f9d8-44af-b6d6-0e0b27566aa0" />
+
+<img width="1161" height="143" alt="Screenshot 2026-05-29 at 7 10 17 PM" src="https://github.com/user-attachments/assets/df6ac677-04b8-4794-b9d4-41ad9f082e83" />
+
