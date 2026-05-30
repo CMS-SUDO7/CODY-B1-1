@@ -111,7 +111,8 @@
   sudo chmod 770 $AGENT_HOME/api_keys
   sudo chgrp agent-core /var/log/agent-app
   sudo chmod 770 /var/log/agent-app
-
+  sudo setfacl -m u:agent-dev:rx /home/agent-admin /home/agent-admin/agent-app
+  
   # 5. 권한체크
   앱 폴더 내부 확인 
   sudo ls -l /home/agent-admin/agent-app/ 
@@ -119,7 +120,7 @@
   sudo ls -ld /var/log/agent-app
   ```
   
-* **복사한 파일 옮기기**
+* **다운받은 파일 복사하기**
   ```bash
   sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
   ```
@@ -154,6 +155,7 @@
 
   # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금
   echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
+  chgrp agent-core /home/agent-admin/agent-app/api_keys/secret.key
   chmod 660 /home/agent-admin/agent-app/api_keys/secret.key
   ```
 
