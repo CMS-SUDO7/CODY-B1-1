@@ -76,7 +76,8 @@
   sudo usermod -aG agent-common,agent-core agent-admin
   sudo usermod -aG agent-common,agent-core agent-dev
   sudo usermod -aG agent-common agent-test
-
+  sudo setfacl -m u:agent-dev:rx /home/agent-admin /home/agent-admin/agent-app
+  
   # 4.그룹 체크
   getent group agent-core
   getent group agent-common
@@ -120,7 +121,7 @@
   
 * **복사한 파일 옮기기**
   ```bash
-  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app /home/agent-admin/agent-app/
+  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
   ```
  
 ### 1.3 애플리케이션 실행 환경 구축
@@ -134,14 +135,14 @@
   export AGENT_HOME=/home/agent-admin/agent-app
   export AGENT_PORT=15034
   export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files
-  export AGENT_KEY_PATH=$AGENT_HOME/api_keys/t_secret.key
+  export AGENT_KEY_PATH=$AGENT_HOME/api_keys
   export AGENT_LOG_DIR=/var/log/agent-app
   EOF
 
   echo 'export AGENT_HOME=/home/agent-admin/agent-app' >> ~/.bashrc 
   echo 'export AGENT_PORT=15034' >> ~/.bashrc 
   echo 'export AGENT_UPLOAD_DIR=$AGENT_HOME/upload_files' >> ~/.bashrc 
-  echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys/t_secret.key' >> ~/.bashrc 
+  echo 'export AGENT_KEY_PATH=$AGENT_HOME/api_keys' >> ~/.bashrc 
   echo 'export AGENT_LOG_DIR=/var/log/agent-app' >> ~/.bashrc
 
   환경변수 즉시 적용
@@ -152,15 +153,15 @@
 
 
   # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금
-  echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/t_secret.key
-  chmod 660 /home/agent-admin/agent-app/api_keys/t_secret.key
+  echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/secret.key
+  chmod 660 /home/agent-admin/agent-app/api_keys/secret.key
   ```
 
 * **애플리케이션 구동 (백그라운드 실행 프로세스)**
   ```bash
   # 앱 디렉토리로 이동 후 앱 실행
   cd $AGENT_HOME
-  ./agent-app
+  ./agent-app-linux-x86
   ```
 
 <img width="1169" height="350" alt="Screenshot 2026-05-28 at 7 41 05 PM" src="https://github.com/user-attachments/assets/c710da80-417f-4580-9a64-913b56411374" />
@@ -217,7 +218,14 @@
 ```bash
 sudo bash -c 'cat << '\''EOF'\'' > /home/agent-admin/agent-app/bin/monitor.sh
 #!/bin/bash
-APP_NAME="agent-app"
+
+# [수정됨] 실행 중인 애플리케이션 자동 감지
+if pgrep -f "agent-leak-app-x86" > /dev/null; then
+    APP_NAME="agent-leak-app-x86"
+else
+    APP_NAME="agent-app-linux-x86"
+fi
+
 APP_PORT=15034
 LOG_FILE="/var/log/agent-app/monitor.log"
 DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
@@ -225,11 +233,14 @@ DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
 echo "====== SYSTEM MONITOR RESULT ======"
 echo ""
 echo "[HEALTH CHECK]"
-APP_PID=$(pgrep -f "$APP_NAME" | head -n 1)
+
+# 프로세스 검사 시 monitor.sh 자기 자신은 제외
+APP_PID=$(pgrep -f "$APP_NAME" | grep -v "monitor.sh" | head -n 1)
+
 if [ -n "$APP_PID" ]; then
-    echo "Checking process '\$APP_NAME'... [OK] (PID: $APP_PID)"
+    echo "Checking process '\''$APP_NAME'\''... [OK] (PID: $APP_PID)"
 else
-    echo "Checking process '\$APP_NAME'... [FAIL]"
+    echo "Checking process '\''$APP_NAME'\''... [FAIL]"
     exit 1
 fi
 
@@ -239,8 +250,8 @@ else
     echo "Checking port $APP_PORT... [FAIL]"
     exit 1
 fi
-echo ""
 
+echo ""
 # 자원 수집
 CPU_IDLE=$(vmstat 1 2 | tail -1 | awk "{print \$15}")
 CPU_USAGE=$((100 - CPU_IDLE))
@@ -261,14 +272,17 @@ if [ "$(systemctl is-active ufw)" != "active" ]; then
     echo "[WARNING] UFW is inactive"
     WARNINGS="$WARNINGS [WARNING] UFW is inactive"
 fi
+
 if [ "$CPU_USAGE" -gt 20 ]; then 
     echo "[WARNING] CPU threshold exceeded (${CPU_USAGE}% > 20%)"
     WARNINGS="$WARNINGS [WARNING] CPU > 20%(${CPU_USAGE}%)"
 fi
+
 if [ "$MEM_USAGE" -gt 10 ]; then 
     echo "[WARNING] MEM threshold exceeded (${MEM_USAGE}% > 10%)"
     WARNINGS="$WARNINGS [WARNING] MEM > 10%(${MEM_USAGE}%)"
 fi
+
 if [ "$DISK_USAGE" -gt 80 ]; then 
     echo "[WARNING] DISK threshold exceeded (${DISK_USAGE}% > 80%)"
     WARNINGS="$WARNINGS [WARNING] DISK_USED > 80%(${DISK_USAGE}%)"
@@ -310,7 +324,6 @@ if [ -f "$LOG_FILE" ]; then
         }
     }'\'' "$LOG_FILE"
 fi
-
 echo ""
 echo "[INFO] Log appended: $LOG_FILE"
 exit 0
@@ -329,17 +342,17 @@ sudo tail -f /var/log/agent-app/monitor.log
 ```
  # 실습 해보기
  ```bash
-  # 1. 관리자 계정으로 전환
-  sudo su - agent-admin
-  # 2. 디렉토리 이동
-  cd $AGENT_HOME
-  # 3. 앱을 백그라운드로 실행 
-  nohup ./agent-app > /dev/null 2>&1 &
-  # 4. 앱 종료 명령어
-  pkill -f agent-app
-  # 5. 실행중인 앱 찾기
-  ps -ef | grep agent-app
-  sudo ss -tulnp | grep 15034
+ # 1. 관리자 계정으로 전환
+ sudo su - agent-admin
+ # 2. 디렉토리 이동
+ cd $AGENT_HOME
+ # 3. 앱을 백그라운드로 실행 
+ nohup ./agent-app-linux-x86 > /dev/null 2>&1 &
+ # 4. 앱 종료 명령어
+ pkill -f agent-app-linux-x86
+ # 5. 실행중인 앱 찾기
+ ps -ef | grep agent-app-linux-x86
+ sudo ss -tulnp | grep 15034
  ```
 <img width="1154" height="140" alt="Screenshot 2026-05-28 at 8 03 46 PM" src="https://github.com/user-attachments/assets/fa36dd2e-0226-47e5-b4af-94a8a5687fcd" />
 
