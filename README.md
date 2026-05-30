@@ -20,6 +20,7 @@
   sudo apt update
   sudo apt install -y openssh-server
   sudo apt install -y ufw
+  sudo apt install acl -y
   
   # 1. sshd_config 파일 내 포트 및 Root 로그인 차단 설정 수정
   sudo sed -i -E 's/^#?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
@@ -31,10 +32,10 @@
   # 3. 설정 리로드 및 서비스 전체 재시작
   sudo systemctl daemon-reload
   sudo systemctl restart ssh.socket
-  sudo systemctl restart sshd
+  sudo systemctl restart ssh
 
   # 4.포트체크 // 루트 로그인 차단 확인
-  sudo ss -tulnp | grep sshd
+  sudo ss -tulnp | grep ssh
   sudo sshd -T | grep permitrootlogin
   ```
 <img width="1157" height="105" alt="Screenshot 2026-05-28 at 7 03 33 PM" src="https://github.com/user-attachments/assets/78240321-5b73-48f9-8e64-a04598319430" />
@@ -119,7 +120,7 @@
   
 * **복사한 파일 옮기기**
   ```bash
-  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
+  sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app /home/agent-admin/agent-app/
   ```
  
 ### 1.3 애플리케이션 실행 환경 구축
@@ -150,27 +151,16 @@
   env | grep AGENT
 
 
-  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금 //제공된 파이썬app가 secret.key키 요구
+  # 3. 애플리케이션 검증용 비밀 키 생성 및 소유권 잠금
   echo "agent_api_key_test" > /home/agent-admin/agent-app/api_keys/t_secret.key
-  chmod 640 /home/agent-admin/agent-app/api_keys/t_secret.key
+  chmod 660 /home/agent-admin/agent-app/api_keys/t_secret.key
   ```
-
-<img width="839" height="74" alt="Screenshot 2026-05-29 at 4 17 31 PM" src="https://github.com/user-attachments/assets/e6ac5020-c3b7-4082-ae8a-f9a941f397a4" />
-
 
 * **애플리케이션 구동 (백그라운드 실행 프로세스)**
   ```bash
-  # 앱 디렉토리로 이동 후 백그라운드 모드로 실행 (터미널 종료 후에도 유지)
+  # 앱 디렉토리로 이동 후 앱 실행
   cd $AGENT_HOME
-  ./agent-app-linux-x86
-  nohup ./agent-app-linux-x86 > /dev/null 2>&1 &
-
-  pkill -f agent-app-linux-x86
-  
-  ps -ef | grep agent-app-linux-x86
-  
-  sudo ss -tulnp | grep 15034
-  
+  ./agent-app
   ```
 
 <img width="1169" height="350" alt="Screenshot 2026-05-28 at 7 41 05 PM" src="https://github.com/user-attachments/assets/c710da80-417f-4580-9a64-913b56411374" />
@@ -227,7 +217,7 @@
 ```bash
 sudo bash -c 'cat << '\''EOF'\'' > /home/agent-admin/agent-app/bin/monitor.sh
 #!/bin/bash
-APP_NAME="agent-app-linux-x86"
+APP_NAME="agent-app"
 APP_PORT=15034
 LOG_FILE="/var/log/agent-app/monitor.log"
 DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
@@ -335,9 +325,22 @@ sudo systemctl restart ufw
 sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
 
 # 4. monitor.log 보기
-tail -f /var/log/agent-app/monitor.log
+sudo tail -f /var/log/agent-app/monitor.log
 ```
-
+ # 실습 해보기
+ ```bash
+  # 1. 관리자 계정으로 전환
+  sudo su - agent-admin
+  # 2. 디렉토리 이동
+  cd $AGENT_HOME
+  # 3. 앱을 백그라운드로 실행 
+  nohup ./agent-app > /dev/null 2>&1 &
+  # 4. 앱 종료 명령어
+  pkill -f agent-app
+  # 5. 실행중인 앱 찾기
+  ps -ef | grep agent-app
+  sudo ss -tulnp | grep 15034
+ ```
 <img width="1154" height="140" alt="Screenshot 2026-05-28 at 8 03 46 PM" src="https://github.com/user-attachments/assets/fa36dd2e-0226-47e5-b4af-94a8a5687fcd" />
 
 <img width="1154" height="152" alt="Screenshot 2026-05-28 at 8 20 18 PM" src="https://github.com/user-attachments/assets/cc4fa3dd-6c57-4ded-97df-684eca8319e9" />
