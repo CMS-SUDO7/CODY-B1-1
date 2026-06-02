@@ -225,7 +225,7 @@ orb create ubuntu:22.04 MD
 sudo bash -c 'cat << '\''EOF'\'' > /home/agent-admin/agent-app/bin/monitor.sh
 #!/bin/bash
 
-# [수정됨] 실행 중인 애플리케이션 자동 감지
+# 실행 중인 애플리케이션 자동 감지
 if pgrep -f "agent-leak-app-x86" > /dev/null; then
     APP_NAME="agent-leak-app-x86"
 else
@@ -233,14 +233,14 @@ else
 fi
 
 APP_PORT=15034
-LOG_FILE="/var/log/agent-app/monitor.log"
+
+LOG_FILE="/var/log/agent-app/monitor.log
 DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
 
 echo "====== SYSTEM MONITOR RESULT ======"
 echo ""
 echo "[HEALTH CHECK]"
 
-# 프로세스 검사 시 monitor.sh 자기 자신은 제외
 APP_PID=$(pgrep -f "$APP_NAME" | grep -v "monitor.sh" | head -n 1)
 
 if [ -n "$APP_PID" ]; then
@@ -258,56 +258,48 @@ else
 fi
 
 echo ""
-# 자원 수집
-CPU_IDLE=$(vmstat 1 2 | tail -1 | awk "{print \$15}")
-CPU_USAGE=$((100 - CPU_IDLE))
-MEM_TOTAL=$(free -m | awk "/Mem:/ {print \$2}")
-MEM_USED=$(free -m | awk "/Mem:/ {print \$3}")
-MEM_USAGE=$(( MEM_USED * 100 / MEM_TOTAL ))
+# [수정] 특정 프로세스의 자원 수집 (CPU는 %, 메모리는 RSS(물리메모리, KB를 MB로 변환))
+PROC_CPU=$(ps -p $APP_PID -o %cpu= | awk '{print $1}')
+PROC_MEM_KB=$(ps -p $APP_PID -o rss= | awk '{print $1}')
+PROC_MEM_MB=$(( PROC_MEM_KB / 1024 ))
+
 DISK_USAGE=$(df -h / | awk "NR==2 {print \$5}" | sed "s/%//")
 
 echo "[RESOURCE MONITORING]"
-echo "CPU Usage : ${CPU_USAGE}%"
-echo "MEM Usage : ${MEM_USAGE}%"
-echo "DISK Used  : ${DISK_USAGE}%"
+echo "Process CPU Usage : ${PROC_CPU}%"
+echo "Process MEM Usage : ${PROC_MEM_MB} MB"
+echo "DISK Used         : ${DISK_USAGE}%"
 echo ""
 
 # 경고 및 로그 메세지 생성
 WARNINGS=""
-if [ "$(systemctl is-active ufw)" != "active" ]; then 
-    echo "[WARNING] UFW is inactive"
-    WARNINGS="$WARNINGS [WARNING] UFW is inactive"
+# CPU 스파이크 감지 기준점 (예: 80% 이상)
+if awk "BEGIN {exit !($PROC_CPU > 80.0)}"; then 
+    echo "[WARNING] CPU threshold exceeded (${PROC_CPU}% > 80%)"
+    WARNINGS="$WARNINGS [WARNING] CPU > 80%(${PROC_CPU}%)"
 fi
 
-if [ "$CPU_USAGE" -gt 20 ]; then 
-    echo "[WARNING] CPU threshold exceeded (${CPU_USAGE}% > 20%)"
-    WARNINGS="$WARNINGS [WARNING] CPU > 20%(${CPU_USAGE}%)"
+# 메모리 사용량 경고 (단위: MB)
+if [ "$PROC_MEM_MB" -gt 300 ]; then 
+    echo "[WARNING] MEM threshold exceeded (${PROC_MEM_MB}MB > 300MB)"
+    WARNINGS="$WARNINGS [WARNING] MEM > 300MB(${PROC_MEM_MB}MB)"
 fi
 
-if [ "$MEM_USAGE" -gt 10 ]; then 
-    echo "[WARNING] MEM threshold exceeded (${MEM_USAGE}% > 10%)"
-    WARNINGS="$WARNINGS [WARNING] MEM > 10%(${MEM_USAGE}%)"
-fi
-
-if [ "$DISK_USAGE" -gt 80 ]; then 
-    echo "[WARNING] DISK threshold exceeded (${DISK_USAGE}% > 80%)"
-    WARNINGS="$WARNINGS [WARNING] DISK_USED > 80%(${DISK_USAGE}%)"
-fi
-
-# 파일에 1줄 로그 기록
-LOG_MESSAGE="[$DATE_STR] PID:$APP_PID CPU:${CPU_USAGE}% MEM:${MEM_USAGE}% DISK_USED:${DISK_USAGE}% $WARNINGS"
+# 로그 기록 (awk가 잘 파싱하도록 형태 유지 및 실수(float) 파싱 지원)
+LOG_MESSAGE="[$DATE_STR] PID:$APP_PID CPU:${PROC_CPU}% MEM:${PROC_MEM_MB}MB DISK_USED:${DISK_USAGE}% $WARNINGS"
 echo "$LOG_MESSAGE" | sed "s/  */ /g" >> "$LOG_FILE"
 echo ""
 
-# 통계 리포트 (기존 로그 파일 분석)
+# 통계 리포트 
 echo "====== STATISTICS REPORT ======"
 if [ -f "$LOG_FILE" ]; then
     awk '\''
-    BEGIN { c_sum=0; m_sum=0; cnt=0; c_max=0; m_max=0; c_min=1000; m_min=1000; }
+    BEGIN { c_sum=0; m_sum=0; cnt=0; c_max=0; m_max=0; c_min=1000; m_min=999999; }
     {
         date_time = $1" "$2;
-        if(match($4, /[0-9]+/)) { cpu = substr($4, RSTART, RLENGTH) + 0; }
-        if(match($5, /[0-9]+/)) { mem = substr($5, RSTART, RLENGTH) + 0; }
+        # [수정] 소수점(float)도 파싱되도록 정규식 [0-9.] 사용
+        if(match($4, /[0-9.]+/)) { cpu = substr($4, RSTART, RLENGTH) + 0; }
+        if(match($5, /[0-9.]+/)) { mem = substr($5, RSTART, RLENGTH) + 0; }
         
         cnt++; c_sum += cpu; m_sum += mem;
         if(cpu >= c_max) { c_max = cpu; c_max_dt = date_time; }
@@ -317,14 +309,14 @@ if [ -f "$LOG_FILE" ]; then
     }
     END {
         if(cnt > 0) {
-            printf "[CPU]\n"
+            printf "[Process CPU]\n"
             printf "Average : %.1f%%\n", c_sum/cnt
-            printf "Maximum : %d%% at %s\n", c_max, substr(c_max_dt, 2, length(c_max_dt)-2)
-            printf "Minimum : %d%% at %s\n", c_min, substr(c_min_dt, 2, length(c_min_dt)-2)
-            printf "[Memory]\n"
-            printf "Average : %.1f%%\n", m_sum/cnt
-            printf "Maximum : %d%% at %s\n", m_max, substr(m_max_dt, 2, length(m_max_dt)-2)
-            printf "Minimum : %d%% at %s\n", m_min, substr(m_min_dt, 2, length(m_min_dt)-2)
+            printf "Maximum : %.1f%% at %s\n", c_max, substr(c_max_dt, 2, length(c_max_dt)-2)
+            printf "Minimum : %.1f%% at %s\n", c_min, substr(c_min_dt, 2, length(c_min_dt)-2)
+            printf "[Process Memory (Physical)]\n"
+            printf "Average : %.1f MB\n", m_sum/cnt
+            printf "Maximum : %.1f MB at %s\n", m_max, substr(m_max_dt, 2, length(m_max_dt)-2)
+            printf "Minimum : %.1f MB at %s\n", m_min, substr(m_min_dt, 2, length(m_min_dt)-2)
             printf "[Samples]\n"
             printf "Data Points: %d samples\n", cnt
         }
@@ -334,18 +326,21 @@ echo ""
 echo "[INFO] Log appended: $LOG_FILE"
 exit 0
 EOF'
+```
 
-# 2.권한 변경
+```bash
+# 2-2.권한 변경
 sudo chown agent-dev:agent-core /home/agent-admin/agent-app/bin/monitor.sh
 sudo chmod 750 /home/agent-admin/agent-app/bin/monitor.sh
 sudo systemctl restart ufw
 
-# 3. 출력
+# 2-3. 출력
 sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
 
-# 4. monitor.log 보기
-sudo tail -f /var/log/agent-app/monitor.log
+# 2-4. monitor.log 보기
+sudo tail -f $AGENT_HOME/logs/monitor.log
 ```
+
  # 실습 해보기
  ```bash
  # 1. 관리자 계정으로 전환
