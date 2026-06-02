@@ -13,6 +13,10 @@
 
 ## 1. 설정 및 명령어 기록
 
+### 1.0 가상환경 셋티 
+```bash
+orb create ubuntu:22.04 MD
+```
 ### 1.1 기본 보안 및 네트워크 설정 (SSH & 방화벽)
 * **SSH 포트 변경(20022) 및 Root 로그인 차단**
   ```bash
@@ -76,7 +80,6 @@
   sudo usermod -aG agent-common,agent-core agent-admin
   sudo usermod -aG agent-common,agent-core agent-dev
   sudo usermod -aG agent-common agent-test
-  sudo setfacl -m u:agent-dev:rx /home/agent-admin /home/agent-admin/agent-app
   
   # 4.그룹 체크
   getent group agent-core
@@ -111,6 +114,7 @@
   sudo chmod 770 $AGENT_HOME/api_keys
   sudo chgrp agent-core /var/log/agent-app
   sudo chmod 770 /var/log/agent-app
+  # agent-dev가 들어올수 있도록 권한 수정
   sudo setfacl -m u:agent-dev:rx /home/agent-admin /home/agent-admin/agent-app
   
   # 5. 권한체크
