@@ -234,7 +234,7 @@ fi
 
 APP_PORT=15034
 
-LOG_FILE="/var/log/agent-app/monitor.log
+LOG_FILE="/var/log/agent-app/monitor.log"
 DATE_STR=$(date +"%Y-%m-%d %H:%M:%S")
 
 echo "====== SYSTEM MONITOR RESULT ======"
