@@ -338,7 +338,7 @@ sudo systemctl restart ufw
 sudo -u agent-admin /home/agent-admin/agent-app/bin/monitor.sh
 
 # 2-4. monitor.log 보기
-sudo tail -f $AGENT_HOME/logs/monitor.log
+sudo tail -f /home/agent-admin/agent-app/logs/monitor.log
 ```
 
  # 실습 해보기
