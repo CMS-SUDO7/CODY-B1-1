@@ -258,7 +258,7 @@ else
 fi
 
 echo ""
-# [수정] 특정 프로세스의 자원 수집 (CPU는 %, 메모리는 RSS(물리메모리, KB를 MB로 변환))
+# 특정 프로세스의 자원 수집 (CPU는 %, 메모리는 RSS(물리메모리, KB를 MB로 변환))
 PROC_CPU=$(ps -p $APP_PID -o %cpu= | awk '{print $1}')
 PROC_MEM_KB=$(ps -p $APP_PID -o rss= | awk '{print $1}')
 PROC_MEM_MB=$(( PROC_MEM_KB / 1024 ))
