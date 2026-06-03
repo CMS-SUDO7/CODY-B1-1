@@ -241,7 +241,7 @@ echo "====== SYSTEM MONITOR RESULT ======"
 echo ""
 echo "[HEALTH CHECK]"
 
-APP_PID=$(pgrep -f "$APP_NAME" | grep -v "monitor.sh" | head -n 1)
+APP_PID=$(pgrep -n -f "$APP_NAME" | grep -v "monitor.sh")
 
 if [ -n "$APP_PID" ]; then
     echo "Checking process '\''$APP_NAME'\''... [OK] (PID: $APP_PID)"
