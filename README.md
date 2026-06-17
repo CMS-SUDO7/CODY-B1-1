@@ -30,13 +30,15 @@ orb create ubuntu:22.04 MD
   sudo sed -i -E 's/^#?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
   sudo sed -i -E 's/^#?Port 22/Port 20022/' /etc/ssh/sshd_config
   
+  
   # 2. systemd SSH 소켓 서비스 포트 변경 (최신 우분투 대응)
-  sudo sed -i 's/ListenStream=22/ListenStream=20022/' /lib/systemd/system/ssh.socket
+  # sudo sed -i 's/ListenStream=22/ListenStream=20022/' /lib/systemd/system/ssh.socket
   
   # 3. 설정 리로드 및 서비스 전체 재시작
-  sudo systemctl daemon-reload
-  sudo systemctl restart ssh.socket
   sudo systemctl restart ssh
+  # sudo systemctl daemon-reload
+  # sudo systemctl restart ssh.socket
+  
 
   # 4.포트체크 // 루트 로그인 차단 확인
   sudo ss -tulnp | grep ssh
