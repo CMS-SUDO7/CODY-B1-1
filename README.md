@@ -129,6 +129,7 @@ orb create ubuntu:22.04 MD
 * **다운받은 파일 복사하기**
   ```bash
   sudo cp /Users/herebattle6145/Downloads/agent-app/agent-app-linux-x86 /home/agent-admin/agent-app/
+  sudo chmod +x /home/agent-admin/agent-app/agent-app-linux-x86
   ```
  
 ### 1.3 애플리케이션 실행 환경 구축
